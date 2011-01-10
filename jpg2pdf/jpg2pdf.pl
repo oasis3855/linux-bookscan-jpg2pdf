@@ -32,15 +32,28 @@ use strict;
 use warnings;
 use utf8;
 
+my $flag_os = 'linux';	# linux/windows
+my $flag_charcode = 'utf8';		# utf8/shiftjis
+
 use File::Basename;
 use PDF::Create;
+# use PDF::API2;
 use Image::Size;
-#use Encode::Guess qw/euc-jp shiftjis iso-2022-jp/;	# 必要な場合
-use Encode::Guess;
+use Encode::Guess qw/euc-jp shiftjis iso-2022-jp/;
+# use Encode::Guess;
 #use Data::Dumper;
 
-binmode(STDOUT, "utf8");
-
+# IOの文字コードを規定
+if($flag_charcode eq 'utf8'){
+	binmode(STDIN, ":utf8");
+	binmode(STDOUT, ":utf8");
+	binmode(STDERR, ":utf8");
+}
+if($flag_charcode eq 'shiftjis'){
+	binmode(STDIN, "encoding(sjis)");
+	binmode(STDOUT, "encoding(sjis)");
+	binmode(STDERR, "encoding(sjis)");
+}
 
 my $strBaseDir = '';		# （入力jpegファイル）基準ディレクトリ
 my $strInputScanPath = './*.jpg';	# 入力ファイルの検索パス
@@ -57,7 +70,7 @@ sub_user_input_init();
 
 
 # ファイルへの書き込みが出来るか検査する
-open(FH, ">$strOutputFilename") or die($strOutputFilename."に書き込めません\n$!");
+open(FH, ">".sub_conv_to_local_charset($strOutputFilename)) or die($strOutputFilename."に書き込めません\n$!");
 close(FH);
 
 sub_make_pdf();
@@ -72,8 +85,8 @@ sub sub_user_input_init {
 
 	if($#ARGV == 1 && length($ARGV[0])>1 && length($ARGV[1])>1)
 	{
-		$strBaseDir = $ARGV[0];
-		$strOutputFilename = $ARGV[1];
+		$strBaseDir = sub_conv_to_flagged_utf8($ARGV[0]);
+		$strOutputFilename = sub_conv_to_flagged_utf8($ARGV[1]);
 	}
 
 	# 対象ディレクトリの入力
@@ -82,18 +95,15 @@ sub sub_user_input_init {
 	else{ print(":"); }
 	$_ = <STDIN>;
 	chomp();
+	$_ = sub_conv_to_flagged_utf8($_);
 	if(length($_)<=0){
 		if(length($strBaseDir)>0){ $_ = $strBaseDir; }	# スクリプトの引数のデフォルトを使う場合
 		else{ die("終了（理由：ディレクトリが入力されませんでした）\n"); }
 	}
 	if(substr($_,-1) ne '/'){ $_ .= '/'; }	# ディレクトリは / で終わるように修正
-	unless(-d $_){ die("終了（理由：ディレクトリ ".$_." が存在しません）\n"); }
+	unless(-d sub_conv_to_local_charset($_)){ die("終了（理由：ディレクトリ ".$_." が存在しません）\n"); }
 	unless($_ =~ m/^\// || $_ =~ m/^.\//){ $strBaseDir = "./".$_; }
 	else{ $strBaseDir = $_; }
-	{
-	my $enc = Encode::Guess->guess($strBaseDir); # エンコード形式の判定
-	$strBaseDir = $enc->decode($strBaseDir); # input encode → utf8
-	}
 	print("対象ディレクトリ : " . $strBaseDir . "\n\n");
 
 	$strInputScanPath = $strBaseDir . '*.jpg';
@@ -105,49 +115,34 @@ sub sub_user_input_init {
 	else{ print(":"); }
 	$_ = <STDIN>;
 	chomp();
+	$_ = sub_conv_to_flagged_utf8($_);
 	if(length($_)<=0){
 		if(length($strOutputFilename)>0){ $_ = $strOutputFilename; }	# スクリプトの引数のデフォルトを使う場合
 		else{ die("終了（理由：ファイル名が入力されませんでした）\n"); }
 	}
-	if(-d $_){ die("終了（理由：".$_." はディレクトリです）\n"); }
+	if(-d sub_conv_to_local_charset($_)){ die("終了（理由：".$_." はディレクトリです）\n"); }
 	unless($_ =~ m/^\// || $_ =~ m/^.\//){ $strOutputFilename = "./".$_; }
 	else{ $strOutputFilename = $_; }
-	{
-	my $enc = Encode::Guess->guess($strOutputFilename); # エンコード形式の判定
-	$strOutputFilename = $enc->decode($strOutputFilename); # input encode → utf8
-	}
 	print("出力ファイル : " . $strOutputFilename . "\n\n");
 
 
 	print("PDF属性の著作者名を入力（無い場合は改行のみ）：");
 	$_ = <STDIN>;
 	chomp;
-	$strAuthor = $_;
-	if(length($strAuthor)>0){
-	{
-	my $enc = Encode::Guess->guess($strAuthor); # エンコード形式の判定
-	$strAuthor = $enc->decode($strAuthor); # input encode → utf8
-	}
-	}
+	$strAuthor = sub_conv_to_flagged_utf8($_);
 	print("Author : " . $strAuthor . "\n\n");
 	
 	# PDF属性はutf16のため変換
-	if(length($strAuthor)>0){ $strAuthor = Encode::encode('utf16', $strAuthor); }
+#	if(length($strAuthor)>0){ $strAuthor = Encode::encode('utf16', $strAuthor); }
 
 	print("PDF属性のタイトルを入力（無い場合は改行のみ）：");
 	$_ = <STDIN>;
 	chomp;
-	$strTitle = $_;
-	if(length($strTitle)>0){
-	{
-	my $enc = Encode::Guess->guess($strTitle); # エンコード形式の判定
-	$strTitle = $enc->decode($strTitle); # input encode → utf8
-	}
-	}
+	$strTitle = sub_conv_to_flagged_utf8($_);
 	print("Title : " . $strTitle . "\n\n");
 
 	# PDF属性はutf16のため変換
-	if(length($strTitle)>0){ $strTitle = Encode::encode('utf16', $strTitle); }
+#	if(length($strTitle)>0){ $strTitle = Encode::encode('utf16', $strTitle); }
 
 	# 用紙サイズの入力
 	print("用紙サイズ\n 1. A3\n 2. A4\n 3. A5\n 4. A6\n 5. Legal\n 6. Letter\n用紙サイズを選択 (1-6) [2]:");
@@ -171,7 +166,7 @@ sub sub_user_input_init {
 sub sub_make_pdf{
 
 	# 入力ファイルを検索して、配列に格納する。
-	@arrFiles = glob($strInputScanPath);
+	@arrFiles = glob(sub_conv_to_local_charset($strInputScanPath));
 	@arrFiles = sort(@arrFiles);
 	if($#arrFiles < 0){ die("対象ファイルが見つからない\n"); }
 	printf("対象ファイル数：%d個\n", $#arrFiles+1);
@@ -179,10 +174,10 @@ sub sub_make_pdf{
 	print("PDF作成を開始します。リターンキーを押してください : ");
 	<STDIN>;
 
-	# initialize PDF
+	# initialize PDF  （日本語のメタデータは、この状態ではエラーとなる）
 	my $pdf = new PDF::Create('filename'     => $strOutputFilename,
-				'Author'       => $strAuthor,
-				'Title'        => $strTitle,
+				'Author'       => ($strAuthor ne '' ? Encode::encode('utf16', $strAuthor) : ''),
+				'Title'        => ($strTitle ne '' ? Encode::encode('utf16', $strTitle) : ''),
 				'CreationDate' => [ localtime ], );
 
 	# 用紙をポートレート（縦＞横）で置いた場合のPDFサイズ
@@ -191,10 +186,10 @@ sub sub_make_pdf{
 
 	foreach(@arrFiles){
 
-		my $strImageFIle = $_;
-		my ($width, $height) = imgsize($strImageFIle);
-		if($width<=0 || $height<=0){print("$strImageFIle error\n"); next; }
-		print($strImageFIle."\n");
+		my $strImageFile = sub_conv_to_flagged_utf8($_);
+		my ($width, $height) = imgsize(sub_conv_to_local_charset($strImageFile));
+		if($width<=0 || $height<=0){print("$strImageFile error\n"); next; }
+		print($strImageFile."\n");
 
 		# ページ幅を用紙サイズに合わせるための比率
 		my $nRatio;
@@ -233,12 +228,88 @@ sub sub_make_pdf{
 		my $page = $container->new_page();
 
 		# 画像を読み込んで貼りつけ
-		my $image = $pdf->image($strImageFIle);
+		my $image = $pdf->image(sub_conv_to_local_charset($strImageFile));
 		$page->image('image' => $image, 'xpos' => 0, 'ypos' => 0, 'xscale' => $nRatio, 'yscale' => $nRatio);
 	}
 
 	# Close the file and write the PDF
 	$pdf->close;
 
+	# 日本語メタデータの書き込み試行 → いまのところエラー
+#	my $pdf2 = PDF::API2->open(sub_conv_to_local_charset($strOutputFilename));
+#	$pdf2->info(
+#		'Author'       => ($strAuthor ne '' ? Encode::encode('utf16', $strAuthor) : '') ,
+#		'Title'       => ($strTitle ne '' ? Encode::encode('utf16', $strTitle) : '')
+#		);
+#	$pdf2->update;
+	
+
+
+}
+
+
+# 任意の文字コードの文字列を、UTF-8フラグ付きのUTF-8に変換する
+sub sub_conv_to_flagged_utf8{
+	my $str = shift;
+	my $enc_force = undef;
+	if(@_ >= 1){ $enc_force = shift; }		# デコーダの強制指定
+	
+	# デコーダが強制的に指定された場合
+	if(defined($enc_force)){
+		if(ref($enc_force)){
+			$str = $enc_force->decode($str);
+			return($str);
+		}
+		elsif($enc_force ne '')
+		{
+			$str = Encode::decode($enc_force, $str);
+		}
+	}
+
+	my $enc = Encode::Guess->guess($str);	# 文字列のエンコードの判定
+
+	unless(ref($enc)){
+		# エンコード形式が2個以上帰ってきた場合 （shiftjis or utf8）
+		my @arr_encodes = split(/ /, $enc);
+		if(grep(/^$flag_charcode/, @arr_encodes) >= 1){
+			# $flag_charcode と同じエンコードが検出されたら、それを優先する
+			$str = Encode::decode($flag_charcode, $str);
+		}
+		elsif(lc($arr_encodes[0]) eq 'shiftjis' || lc($arr_encodes[0]) eq 'euc-jp' || 
+			lc($arr_encodes[0]) eq 'utf8' || lc($arr_encodes[0]) eq 'us-ascii'){
+			# 最初の候補でデコードする
+			$str = Encode::decode($arr_encodes[0], $str);
+		}
+	}
+	else{
+		# UTF-8でUTF-8フラグが立っている時以外は、変換を行う
+		unless(ref($enc) eq 'Encode::utf8' && utf8::is_utf8($str) == 1){
+			$str = $enc->decode($str);
+		}
+	}
+
+	return($str);
+}
+
+
+# 任意の文字コードの文字列を、UTF-8フラグ無しのUTF-8に変換する
+sub sub_conv_to_unflagged_utf8{
+	my $str = shift;
+
+	# いったん、フラグ付きのUTF-8に変換
+	$str = sub_conv_to_flagged_utf8($str);
+
+	return(Encode::encode('utf8', $str));
+}
+
+
+# UTF8から現在のOSの文字コードに変換する
+sub sub_conv_to_local_charset{
+	my $str = shift;
+
+	# UTF8から、指定された（OSの）文字コードに変換する
+	$str = Encode::encode($flag_charcode, $str);
+	
+	return($str);
 }
 
