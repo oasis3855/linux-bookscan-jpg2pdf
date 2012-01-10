@@ -8,8 +8,9 @@
 # Copyright (C) INOUE Hirokazu, All Rights Reserved
 #     http://oasis.halfmoon.jp/
 #
-# div-contrast-img.pl
+# image-divider.pl
 # version 0.1 (2010/December/06)
+# version 0.2 (2012/January/10)
 #
 # GNU GPL Free Software
 #
@@ -32,7 +33,12 @@
 
 use strict;
 use warnings;
+use utf8;
 
+my $flag_os = 'linux';  # linux/windows
+my $flag_charcode = 'utf8';     # utf8/shiftjis
+
+use Encode::Guess qw/euc-jp shiftjis iso-2022-jp/;  # 必要ないエンコードは削除すること
 use Image::Magick;
 use Image::ExifTool;
 use Image::Size;
@@ -40,145 +46,191 @@ use File::Basename;
 
 #use Data::Dumper;
 
-my $strInputDir = './';			# 入力ファイルのあるディレクトリ
-my $strOutputDir = './';		# 出力ディレクトリ
-my $strSearchPattern = '*.jpg';	# 対象ファイル（検索文字列）
-my $nTrimRate = 0;				# 周囲を切り取る率（0〜50）％
-my $flag_LR = 'LR';				# ページ順 LR または RL
-
-my $nGamma = 0.4;				# 画像補正値：ガンマ
-my $nBlackThreshold = 20;		# 画像補正値：黒レベル強制（％）
-my $nWhiteThreshold = 80;		# 画像補正値：白レベル強制（％）
-my $nQuality = 85;				# jpeg保存クオリティ
-
-
-my @arrScan = undef;	# ファイル一覧を一時的に格納する配列
-
-print("指定されたフォルダの全ファイルを左右二分割、コントラスト調整します\n");
-
-sub_user_input_init();
-
-sub_scan_imagefiles();
-
-if($#arrScan < 0){die("処理対象ファイルが見つかりません\n"); }
-printf("処理対象ファイル数：%d\n", $#arrScan+1);
-
-if($flag_LR eq 'RL'){
-	my $i = 1;
-	foreach(@arrScan) {
-		sub_split_image($_, $i, 'R');
-		$i++;
-		sub_split_image($_, $i, 'L');
-		$i++;
-	}
+# IOの文字コードを規定
+if($flag_charcode eq 'utf8'){
+    binmode(STDIN, ":utf8");
+    binmode(STDOUT, ":utf8");
+    binmode(STDERR, ":utf8");
 }
-elsif($flag_LR eq 'LR'){
-	my $i = 1;
-	foreach(@arrScan) {
-		sub_split_image($_, $i, 'L');
-		$i++;
-		sub_split_image($_, $i, 'R');
-		$i++;
-	}
-}
-else{
-	my $i = 1;
-	foreach(@arrScan) {
-		sub_split_image($_, $i, 'N');
-		$i++;
-	}
+if($flag_charcode eq 'shiftjis'){
+    binmode(STDIN, "encoding(sjis)");
+    binmode(STDOUT, "encoding(sjis)");
+    binmode(STDERR, "encoding(sjis)");
 }
 
-exit();
+
+my $strInputDir = './';         # 入力ファイルのあるディレクトリ
+my $strOutputDir = './';        # 出力ディレクトリ
+my $strSearchPattern = '*.jpg'; # 対象ファイル（検索文字列）
+my $nTrimRate = 0;              # 周囲を切り取る率（0〜50）％
+my $nCenterOverlapRate = 0;     # LR/RL切り分け時、ページ中央を重複させる
+my $flag_LR = 'LR';             # ページ順 LR または RL、左右に2分割しない場合は N
+
+my $nGamma = 0.4;               # 画像補正値：ガンマ
+my $nBlackThreshold = 20;       # 画像補正値：黒レベル強制（％）
+my $nWhiteThreshold = 80;       # 画像補正値：白レベル強制（％）
+my $nQuality = 85;              # jpeg保存クオリティ
+
+sub_main();
+exit;
+
+
+sub sub_main {
+    my @arrScan = undef;    # ファイル一覧を一時的に格納する配列
+
+    print("指定されたフォルダの全ファイルを左右二分割、コントラスト調整します\n");
+
+    sub_user_input_init();
+
+    sub_scan_imagefiles(\@arrScan);
+
+    if($#arrScan < 0){die("処理対象ファイルが見つかりません\n"); }
+    printf("処理対象ファイル数：%d\n", $#arrScan+1);
+
+    if($flag_LR eq 'RL'){
+        my $i = 1;
+        foreach(@arrScan) {
+            sub_split_image(sub_conv_to_flagged_utf8($_), $i, 'R');
+            $i++;
+            sub_split_image(sub_conv_to_flagged_utf8($_), $i, 'L');
+            $i++;
+        }
+    }
+    elsif($flag_LR eq 'LR'){
+        my $i = 1;
+        foreach(@arrScan) {
+            sub_split_image(sub_conv_to_flagged_utf8($_), $i, 'L');
+            $i++;
+            sub_split_image(sub_conv_to_flagged_utf8($_), $i, 'R');
+            $i++;
+        }
+    }
+    else{
+        my $i = 1;
+        foreach(@arrScan) {
+            sub_split_image(sub_conv_to_flagged_utf8($_), $i, 'N');
+            $i++;
+        }
+    }
+}
 
 # 対象ディレクトリ、処理形式などのユーザ入力（コンソール版）
 sub sub_user_input_init {
 
-	# 入力ディレクトリの入力
-	print("入力ファイルのあるディレクトリを、絶対または相対ディレクトリで入力。\n（例：/home/user/, ./）： ");
-	$_ = <STDIN>;
-	chomp();
-	if(length($_)<=0){ die("終了（理由：ディレクトリが入力されませんでした）\n"); }
-	if(substr($_,-1) ne '/'){ $_ .= '/'; }	# ディレクトリは / で終わるように修正
-	unless(-d $_){ die("終了（理由：ディレクトリ ".$_." が存在しません）\n"); }
-	$strInputDir = $_;
-	print("入力ディレクトリ : " . $strInputDir . "\n");
+    # プログラムの第1引数は、入力ディレクトリ
+    if($#ARGV >= 0 && length($ARGV[0])>1)
+    {
+        $strInputDir = sub_conv_to_flagged_utf8($ARGV[0]);
+    }
+    # 入力ディレクトリの入力
+    print("入力ディレクトリを、絶対または相対ディレクトリで入力。".
+        "\n（例：/home/user/, ./）[".$strInputDir."] :");
+    $_ = <STDIN>;
+    chomp();
+    unless(length($_)<=0){ $strInputDir = $_; }
+    if(substr($strInputDir,-1) ne '/'){ $strInputDir .= '/'; }  # ディレクトリは / で終わるように修正
+    unless(-d sub_conv_to_local_charset($strInputDir)){ die("終了（理由：ディレクトリ ".$strInputDir." が存在しません）\n"); }
+    print("入力ディレクトリ : " . $strInputDir . "\n");
 
-	# 出力ディレクトリの入力
-	print("出力ディレクトリを、絶対または相対ディレクトリで入力。\n（例：/home/user/, ./）： ");
-	$_ = <STDIN>;
-	chomp();
-	if(length($_)<=0){ die("終了（理由：ディレクトリが入力されませんでした）\n"); }
-	if(substr($_,-1) ne '/'){ $_ .= '/'; }	# ディレクトリは / で終わるように修正
-	unless(-d $_){ die("終了（理由：ディレクトリ ".$_." が存在しません）\n"); }
-	$strOutputDir = $_;
-	print("出力ディレクトリ : " . $strOutputDir . "\n");
 
-	# ページ順の入力
-	print("ページ順（右左=RL、左右=LR）または左右分割無し（N）を入力 [LR/RL/N] ： ");
-	$_ = <STDIN>;
-	chomp();
-	if(length($_)<=0){ die("終了（理由：何も入力されませんでした）\n"); }
-	if(uc($_) eq 'LR'){ $flag_LR = 'LR'; }
-	elsif(uc($_) eq 'RL'){ $flag_LR = 'RL'; }
-	elsif(uc($_) eq 'N'){ $flag_LR = 'N'; }
-	else{ die("終了（理由：LR, RL以外が入力されました）\n"); }
+    # プログラムの第2引数は、出力ディレクトリ
+    if($#ARGV >= 1 && length($ARGV[1])>1)
+    {
+        $strOutputDir = sub_conv_to_flagged_utf8($ARGV[1]);
+    }
+    # 出力ディレクトリの入力
+    print("出力ディレクトリを、絶対または相対ディレクトリで入力。".
+        "\n（例：/home/user/, ./）[".$strOutputDir."] :");
+    $_ = <STDIN>;
+    chomp();
+    unless(length($_)<=0){ $strOutputDir = $_; }
+    if(substr($strOutputDir,-1) ne '/'){ $strOutputDir .= '/'; }    # ディレクトリは / で終わるように修正
+    unless(-d sub_conv_to_local_charset($strOutputDir)){ die("終了（理由：ディレクトリ ".$strOutputDir." が存在しません）\n"); }
+    print("出力ディレクトリ : " . $strOutputDir . "\n");
+    
+    # 入出力先が同一の場合はエラー
+    if($strInputDir eq $strOutputDir){ die("終了（入出力ディレクトリが同じです）\n"); }
 
-	# トリム
-	print("周囲を切り取る率(%)を入力 (0 〜 50) [0]： ");
-	$_ = <STDIN>;
-	chomp();
-	if(length($_)<=0){ $nTrimRate = 0; }
-	elsif(int($_)<0 || int($_)>50){ die("終了（理由：0〜50を入力してください）\n"); }
-	else{ $nTrimRate = int($_); }
-	print("Trim=".$nTrimRate."(%)\n");
 
-	# ガンマ値
-	print("画像補正のガンマ値入力 (0.0 〜 1.0) [0.4] ： ");
-	$_ = <STDIN>;
-	chomp();
-	if(length($_)<=0){ $nGamma = 0.4; }
-	elsif($_<0.0 || $_>1.0){ die("終了（理由：0〜1を入力してください）\n"); }
-	else{ $nGamma = $_; }
-	print("Gamma=".$nGamma."\n");
+    # ページ順の入力
+    print("ページ順（右左=RL、左右=LR）または左右分割無し（N）を入力 (LR/RL/N) [N] :");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $flag_LR = 'N'; }
+    elsif(uc($_) eq 'LR'){ $flag_LR = 'LR'; }
+    elsif(uc($_) eq 'RL'){ $flag_LR = 'RL'; }
+    elsif(uc($_) eq 'N'){ $flag_LR = 'N'; }
+    else{ die("終了（理由：LR, RL以外が入力されました）\n"); }
+    print("ページ順=".$flag_LR."\n");
 
-	# 黒レベル
-	print("強制的に黒とみなすレベル（%） (0 〜 50) [20] ： ");
-	$_ = <STDIN>;
-	chomp();
-	if(length($_)<=0){ $nBlackThreshold = 20; }
-	elsif(int($_)<0 || int($_)>50){ die("終了（理由：0〜50を入力してください）\n"); }
-	else{ $nBlackThreshold = int($_); }
-	$nBlackThreshold .= '%';
-	print("BlackThreshold=".$nBlackThreshold."\n");
 
-	# 白レベル
-	print("強制的に白とみなすレベル（%） (50 〜 100) [80] ： ");
-	$_ = <STDIN>;
-	chomp();
-	if(length($_)<=0){ $nWhiteThreshold = 80; }
-	elsif(int($_)<50 || int($_)>100){ die("終了（理由：50〜100を入力してください）\n"); }
-	else{ $nWhiteThreshold = int($_); }
-	$nWhiteThreshold .= '%';
-	print("WhiteThreshold=".$nWhiteThreshold."\n");
+    # 画像の周囲を切り抜き（トリム）
+    print("周囲を切り取る率(%)を入力 (0 〜 50) [0]： ");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $nTrimRate = 0; }
+    elsif(int($_)<0 || int($_)>50){ die("終了（理由：0〜50を入力してください）\n"); }
+    else{ $nTrimRate = int($_); }
+    print("Trim=".$nTrimRate."%\n");
 
-	# jpegクオリティ
-	print("jpeg保存クオリティ（%） (50 〜 100) [85] ： ");
-	$_ = <STDIN>;
-	chomp();
-	if(length($_)<=0){ $nQuality = 85; }
-	elsif(int($_)<50 || int($_)>100){ die("終了（理由：50〜100を入力してください）\n"); }
-	else{ $nQuality = int($_); }
-	print("JpegQuality=".$nQuality."\n");
+    # ページ左右切り分け時、ページ中央をオーバーラップさせる割合
+    if($flag_LR ne 'N'){
+        print("切り分けページ中央のオーバーラップ率(%)を入力 (0 〜 10) [0]： ");
+        $_ = <STDIN>;
+        chomp();
+        if(length($_)<=0){ $nCenterOverlapRate = 0; }
+        elsif(int($_)<0 || int($_)>10){ die("終了（理由：0〜50を入力してください）\n"); }
+        else{ $nCenterOverlapRate = int($_); }
+        print("CenterOverlap=".$nCenterOverlapRate."%\n");
+    }
+
+    # ガンマ値
+    print("画像補正のガンマ値入力。Kindleの場合は0.4程度 (0.0 〜 1.0) [1.0] ： ");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $nGamma = 1.0; }
+    elsif($_<0.0 || $_>1.0){ die("終了（理由：0〜1を入力してください）\n"); }
+    else{ $nGamma = $_; }
+    print("Gamma=".$nGamma."\n");
+
+    # 黒レベル
+    print("強制的に黒とみなすレベル（%） (0 〜 50) [20] ： ");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $nBlackThreshold = 20; }
+    elsif(int($_)<0 || int($_)>50){ die("終了（理由：0〜50を入力してください）\n"); }
+    else{ $nBlackThreshold = int($_); }
+    $nBlackThreshold .= '%';
+    print("BlackThreshold=".$nBlackThreshold."\n");
+
+    # 白レベル
+    print("強制的に白とみなすレベル（%） (50 〜 100) [80] ： ");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $nWhiteThreshold = 80; }
+    elsif(int($_)<50 || int($_)>100){ die("終了（理由：50〜100を入力してください）\n"); }
+    else{ $nWhiteThreshold = int($_); }
+    $nWhiteThreshold .= '%';
+    print("WhiteThreshold=".$nWhiteThreshold."\n");
+
+    # jpegクオリティ
+    print("jpeg保存クオリティ（%） (50 〜 100) [85] ： ");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $nQuality = 85; }
+    elsif(int($_)<50 || int($_)>100){ die("終了（理由：50〜100を入力してください）\n"); }
+    else{ $nQuality = int($_); }
+    print("JpegQuality=".$nQuality."\n");
 
 
 }
 
 # 対象画像ファイルを配列に格納して、ソートする
 sub sub_scan_imagefiles {
+    my $arrScan_ref = shift;    # 引数（対象画像ファイル名の配列）
 
-	@arrScan = glob($strInputDir . $strSearchPattern);
-	@arrScan = sort { uc($a) cmp uc($b) } @arrScan;		# ソート
+    @$arrScan_ref = glob(sub_conv_to_local_charset($strInputDir . $strSearchPattern));
+    @$arrScan_ref = sort { uc($a) cmp uc($b) } @$arrScan_ref;       # ソート
 
 }
 
@@ -191,58 +243,209 @@ sub sub_scan_imagefiles {
 #     string左右：L=左半分, R=右半分, N=切り出し無し
 #
 sub sub_split_image {
-	my $input_filename = shift;
-	my $seq_no = shift;
-	my $lr = shift;
-	
-	my $output_filename = sprintf("%s%04d.jpg", $strOutputDir, $seq_no);
-	
-	print($input_filename." -> ".$output_filename."\n");
-	
-	my $image = Image::Magick->new();
-	my $image_check = undef;
+    my $input_filename = shift;
+    my $seq_no = shift;
+    my $lr = shift;
+    
+    my $output_filename = sprintf("%s%04d.jpg", $strOutputDir, $seq_no);
+    
+    print($input_filename." -> ".$output_filename."\n");
+    
+    my $image = Image::Magick->new();
+    my $image_check = undef;
 
-	# 画像読み込み
-	$image_check = $image->Read($input_filename);
+    # 画像読み込み
+    $image_check = $image->Read($input_filename);
 
-	if($image_check){ die("$@"); }
+    if($image_check){ die("$@"); }
 
-	# 画像サイズの画面表示
-	my ($width, $height) = imgsize($input_filename);	# 画像サイズ読み込み
-	my $width_trim = int($width/2*$nTrimRate/100);
-	my $height_trim = int($height*$nTrimRate/100);
+    # 元画像サイズ
+    my ($width, $height) = imgsize($input_filename);    # 画像サイズ読み込み
+    # トリム サイズ
+    my $width_trim = int( ($lr eq 'N' ? $width:$width/2)*$nTrimRate/100 );
+    my $height_trim = int($height*$nTrimRate/100);
 
-	print("fullsize=".($flag_LR eq 'N' ? $width : int($width/2)).",".$height.", trim=".$width_trim.",".$height_trim."\n");
+    # インデックスカラー、グレーの場合は、フルカラーに戻す（画像調整のため）
+    $image->Set(type=>'TrueColor');
 
-	# インデックスカラー、グレーの場合は、フルカラーに戻す（画像調整のため）
-	$image->Set(type=>'TrueColor');
+    # 画像切り抜き（クリップ）の位置、サイズ算出
+    my $width_crop;
+    my $height_crop;
+    my $x_start;
+    my $y_start;
+    if($lr eq 'L') {
+        $width_crop = int($width/2)-$width_trim*2;
+        $height_crop = $height-$height_trim*2;
+        $x_start = 0+$width_trim;
+        $y_start = 0+$height_trim;
+    }
+    elsif($lr eq 'R') {
+        $width_crop = int(int($width/2)-$width_trim*2);
+        $height_crop = $height-$height_trim*2;
+        $x_start = int($width/2)+$width_trim;
+        $y_start = 0+$height_trim;
+    }
+    else {
+        $width_crop = int($width-$width_trim*2);
+        $height_crop = $height-$height_trim*2;
+        $x_start = 0+$width_trim*2;
+        $y_start = 0+$height_trim;
+    }
 
-	# 画像切り抜き（クリップ）
-	if($nTrimRate>0)
-	{
-		if($lr eq 'L') {
-			$image->Crop('width'=>(int($width/2)-$width_trim*2), 'height'=>($height-$height_trim*2), 'x'=>(0+$width_trim), 'y'=>(0+$height_trim));
-		}
-		elsif($lr eq 'R') {
-			$image->Crop('width'=>int(int($width/2)-$width_trim*2), 'height'=>($height-$height_trim*2), 'x'=>(int($width/2)+$width_trim), 'y'=>(0+$height_trim));
-		}
-		else {
-			$image->Crop('width'=>int($width-$width_trim*4), 'height'=>($height-$height_trim*2), 'x'=>(0+$width_trim*2), 'y'=>(0+$height_trim));
-		}
-	}
+    # ページ中央のオーバーラップがある場合のクリップ座標の調整
+    if($nCenterOverlapRate > 0){
+        $width_crop += int($width/2*$nCenterOverlapRate/100);
+        if($lr eq 'R'){ $x_start -= int($width/2*$nCenterOverlapRate/100); }
+    }
 
-	# 黒・白しきい値
-	$image->BlackThreshold(threshold=>$nBlackThreshold);	# 設定値以下は黒になる
-	$image->WhiteThreshold(threshold=>$nWhiteThreshold);	# 設定値以上は白になる
-	# ガンマ補正
-	$image->Gamma(gamma=>$nGamma);
+    # 画像切り抜き（クリップ）
+    if($nTrimRate>0 || $lr ne 'N' || $nCenterOverlapRate > 0) {
+        $image->Crop('width'=>$width_crop, 'height'=>$height_crop, 'x'=>$x_start, 'y'=>$y_start);
+    }
 
-	# 画像の保存
-	$image->Set(quality=>$nQuality);		# 保存クオリティ（%）
-	$image->Write($output_filename);
+    # 黒・白しきい値
+    $image->BlackThreshold(threshold=>$nBlackThreshold);    # 設定値以下は黒になる
+    $image->WhiteThreshold(threshold=>$nWhiteThreshold);    # 設定値以上は白になる
+    # ガンマ補正
+    $image->Gamma(gamma=>$nGamma);
+
+    # 画像の保存
+    $image->Set(quality=>$nQuality);        # 保存クオリティ（%）
+    $image->Write($output_filename);
+
+    # 情報の画面表示
+    print(" original=".$width."x".$height.
+        ", start:x=".$x_start.",y=".$y_start."(trim=".$width_trim."x".$height_trim."), ".$lr.
+        ", cripsize=".$width_crop."x".$height_crop."\n");
 
 
 }
+
+
+# 任意の文字コードの文字列を、UTF-8フラグ付きのUTF-8に変換する
+sub sub_conv_to_flagged_utf8{
+    my $str = shift;
+    my $enc_force = undef;
+    if(@_ >= 1){ $enc_force = shift; }      # デコーダの強制指定
+
+    if(!defined($str) || $str eq ''){ return(''); }     # $strが存在しない場合
+    if(Encode::is_utf8($str)){ return($str); }  # 既にflagged utf-8に変換済みの場合
+    
+    # デコーダが強制的に指定された場合
+    if(defined($enc_force)){
+        if(ref($enc_force)){
+            $str = $enc_force->decode($str);
+            return($str);
+        }
+        elsif($enc_force ne '')
+        {
+            $str = Encode::decode($enc_force, $str);
+        }
+    }
+
+    my $enc = Encode::Guess->guess($str);   # 文字列のエンコードの判定
+
+    unless(ref($enc)){
+        # エンコード形式が2個以上帰ってきた場合 （shiftjis or utf8）
+        my @arr_encodes = split(/ /, $enc);
+        if(grep(/^$flag_charcode/, @arr_encodes) >= 1){
+            # $flag_charcode と同じエンコードが検出されたら、それを優先する
+            $str = Encode::decode($flag_charcode, $str);
+        }
+        elsif(lc($arr_encodes[0]) eq 'shiftjis' || lc($arr_encodes[0]) eq 'euc-jp' || 
+            lc($arr_encodes[0]) eq 'utf8' || lc($arr_encodes[0]) eq 'us-ascii'){
+            # 最初の候補でデコードする
+            $str = Encode::decode($arr_encodes[0], $str);
+        }
+    }
+    else{
+        # UTF-8でUTF-8フラグが立っている時以外は、変換を行う
+        unless(ref($enc) eq 'Encode::utf8' && utf8::is_utf8($str) == 1){
+            $str = $enc->decode($str);
+        }
+    }
+
+    return($str);
+}
+
+###### ユーザ入出力・画面表示文字コード変換 共通サブルーチン
+
+# 任意の文字コードの文字列を、UTF-8フラグ無しのUTF-8に変換する
+sub sub_conv_to_unflagged_utf8{
+    my $str = shift;
+
+    # いったん、フラグ付きのUTF-8に変換
+    $str = sub_conv_to_flagged_utf8($str);
+
+    return(Encode::encode('utf8', $str));
+}
+
+
+# UTF8から現在のOSの文字コードに変換する
+sub sub_conv_to_local_charset{
+    my $str = shift;
+
+    # UTF8から、指定された（OSの）文字コードに変換する
+    $str = Encode::encode($flag_charcode, $str);
+    
+    return($str);
+}
+
+
+# 引数で与えられたファイルの エンコードオブジェクト Encode::encode を返す
+sub sub_get_encode_of_file{
+    my $fname = shift;      # 解析するファイル名
+
+    # ファイルを一気に読み込む
+    open(FH, "<".sub_conv_to_local_charset($fname));
+    my @arr = <FH>;
+    close(FH);
+    my $str = join('', @arr);       # 配列を結合して、一つの文字列に
+
+    my $enc = Encode::Guess->guess($str);   # 文字列のエンコードの判定
+
+    # エンコード形式の表示（デバッグ用）
+    print("Automatick encode ");
+    if(ref($enc) eq 'Encode::utf8'){ print("detect : utf8\n"); }
+    elsif(ref($enc) eq 'Encode::Unicode'){
+        print("detect : ".$$enc{'Name'}."\n");
+    }
+    elsif(ref($enc) eq 'Encode::XS'){
+        print("detect : ".$enc->mime_name()."\n");
+    }
+    elsif(ref($enc) eq 'Encode::JP::JIS7'){
+        print("detect : ".$$enc{'Name'}."\n");
+    }
+    else{
+        # 二つ以上のエンコードが推定される場合は、$encに文字列が返る
+        print("unknown (".$enc.")\n");
+    }
+
+    # エンコード形式が2個以上帰ってきた場合 （例：shiftjis or utf8）でテクと失敗と扱う
+    unless(ref($enc)){
+        $enc = '';
+    }
+
+    # ファイルがHTMLの場合 Content-Type から判定する
+    if(lc($fname) =~ m/html$/ || lc($fname) =~ m/htm$/){
+        my $parser = HTML::HeadParser->new();
+        unless($parser->parse($str)){
+            my $content_enc = $parser->header('content-type');
+            if(defined($content_enc) && $content_enc ne '' && lc($content_enc) =~ m/text\/html/ ){
+                if(lc($content_enc) =~ m/utf-8/){ $enc = 'utf8'; }
+                elsif(lc($content_enc) =~ m/shift_jis/){ $enc = 'shiftjis'; }
+                elsif(lc($content_enc) =~ m/euc-jp/){ $enc = 'euc-jp'; }
+                
+                print("HTML Content-Type detect : ". $content_enc ." (is overrided)\n");
+#               $enc = $content_enc;
+            }
+        }
+    }
+
+    return($enc);
+}
+
+
 
 # スクリプト終了 EOF
 
