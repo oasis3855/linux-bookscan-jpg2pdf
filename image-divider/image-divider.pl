@@ -11,6 +11,7 @@
 # image-divider.pl
 # version 0.1 (2010/December/06)
 # version 0.2 (2012/January/10)
+# version 0.3 (2012/March/08)
 #
 # GNU GPL Free Software
 #
@@ -43,6 +44,8 @@ use Image::Magick;
 use Image::ExifTool;
 use Image::Size;
 use File::Basename;
+use File::Glob;
+use File::Temp qw/tempfile/;
 
 #use Data::Dumper;
 
@@ -81,6 +84,9 @@ sub sub_main {
     print("指定されたフォルダの全ファイルを左右二分割、コントラスト調整します\n");
 
     sub_user_input_init();
+    if(sub_check_same_dir()){
+        die("入出力ディレクトリが同一です\n");
+    }
 
     sub_scan_imagefiles(\@arrScan);
 
@@ -225,11 +231,31 @@ sub sub_user_input_init {
 
 }
 
+# 入力・出力が同じディレクトリでないか、確認する
+# 戻り値 1:同一ディレクトリ, 0:別のディレクトリ
+sub sub_check_same_dir {
+    # 出力側ディレクトリに、テンポラリファイルを作成する
+    my ($fh, $filename) = File::Temp::tempfile(DIR => $strOutputDir, SUFFIX => '.tmp');
+    print($fh "test\n");
+    close($fh);
+    if(-f $strInputDir . basename($filename)){
+        # 入力側ディレクトリに、テンポラリファイルが見つかったら、同一ディレクトリと判定
+        unlink($filename);
+        return 1;
+    }
+    unlink($filename);
+    return 0;
+}
+
 # 対象画像ファイルを配列に格納して、ソートする
 sub sub_scan_imagefiles {
     my $arrScan_ref = shift;    # 引数（対象画像ファイル名の配列）
 
-    @$arrScan_ref = glob(sub_conv_to_local_charset($strInputDir . $strSearchPattern));
+    # CORE::globに渡すパスは、スペース文字をバックスラッシュでエスケープする
+    #my $escape_char = ' ';
+    #$strInputDir =~ s/([$escape_char])/'\\' . $1/eg;
+
+    @$arrScan_ref = File::Glob::glob(sub_conv_to_local_charset($strInputDir . $strSearchPattern));
     @$arrScan_ref = sort { uc($a) cmp uc($b) } @$arrScan_ref;       # ソート
 
 }
@@ -250,75 +276,83 @@ sub sub_split_image {
     my $output_filename = sprintf("%s%04d.jpg", $strOutputDir, $seq_no);
     
     print($input_filename." -> ".$output_filename."\n");
-    
-    my $image = Image::Magick->new();
-    my $image_check = undef;
+    if(!(-f $input_filename)){ die("ファイル $input_filename が存在しない\n"); }
+    eval{
+        if(!(-r $input_filename)){ die("ファイル $input_filename に読み込み属性がない"); }
+        my $image = Image::Magick->new();
 
-    # 画像読み込み
-    $image_check = $image->Read($input_filename);
+        # 画像読み込み
+        $image->Read($input_filename) and die('ファイル '.$input_filename.' の読み込みに失敗');
 
-    if($image_check){ die("$@"); }
+        # 元画像サイズ
+        my ($width, $height) = Image::Size::imgsize($input_filename);
+        # 画像サイズ読み込み
+        if(!defined($width) || !defined($height) || $width <= 0 || $height <= 0){
+            die("ファイル $input_filename の縦横ピクセル数が読み取れない");
+        }
+        # トリム サイズ
+        my $width_trim = int( ($lr eq 'N' ? $width:$width/2)*$nTrimRate/100 );
+        my $height_trim = int($height*$nTrimRate/100);
 
-    # 元画像サイズ
-    my ($width, $height) = imgsize($input_filename);    # 画像サイズ読み込み
-    # トリム サイズ
-    my $width_trim = int( ($lr eq 'N' ? $width:$width/2)*$nTrimRate/100 );
-    my $height_trim = int($height*$nTrimRate/100);
+        # インデックスカラー、グレーの場合は、フルカラーに戻す（画像調整のため）
+        $image->Set(type=>'TrueColor') and die("(imagemagick:set true color) $input_filename");
 
-    # インデックスカラー、グレーの場合は、フルカラーに戻す（画像調整のため）
-    $image->Set(type=>'TrueColor');
+        # 画像切り抜き（クリップ）の位置、サイズ算出
+        my $width_crop;
+        my $height_crop;
+        my $x_start;
+        my $y_start;
+        if($lr eq 'L') {
+            $width_crop = int($width/2)-$width_trim*2;
+            $height_crop = $height-$height_trim*2;
+            $x_start = 0+$width_trim;
+            $y_start = 0+$height_trim;
+        }
+        elsif($lr eq 'R') {
+            $width_crop = int(int($width/2)-$width_trim*2);
+            $height_crop = $height-$height_trim*2;
+            $x_start = int($width/2)+$width_trim;
+            $y_start = 0+$height_trim;
+        }
+        else {
+            $width_crop = int($width-$width_trim*2);
+            $height_crop = $height-$height_trim*2;
+            $x_start = 0+$width_trim*2;
+            $y_start = 0+$height_trim;
+        }
 
-    # 画像切り抜き（クリップ）の位置、サイズ算出
-    my $width_crop;
-    my $height_crop;
-    my $x_start;
-    my $y_start;
-    if($lr eq 'L') {
-        $width_crop = int($width/2)-$width_trim*2;
-        $height_crop = $height-$height_trim*2;
-        $x_start = 0+$width_trim;
-        $y_start = 0+$height_trim;
+        # ページ中央のオーバーラップがある場合のクリップ座標の調整
+        if($nCenterOverlapRate > 0){
+            $width_crop += int($width/2*$nCenterOverlapRate/100);
+            if($lr eq 'R'){ $x_start -= int($width/2*$nCenterOverlapRate/100); }
+        }
+
+        # 画像切り抜き（クリップ）
+        if($nTrimRate>0 || $lr ne 'N' || $nCenterOverlapRate > 0) {
+            $image->Crop('width'=>$width_crop, 'height'=>$height_crop, 'x'=>$x_start, 'y'=>$y_start) and die("(imagemagick:crop) $input_filename");
+        }
+
+        # 黒・白しきい値
+        $image->BlackThreshold(threshold=>$nBlackThreshold) and die("(imagemagick:black threshold) $input_filename");    # 設定値以下は黒になる
+        $image->WhiteThreshold(threshold=>$nWhiteThreshold) and die("(imagemagick:white threshold) $input_filename");    # 設定値以上は白になる
+        # ガンマ補正
+        $image->Gamma(gamma=>$nGamma) and die("(imagemagick:gamma) $input_filename");
+
+        # 画像の保存
+        $image->Set(quality=>$nQuality);        # 保存クオリティ（%）
+        $image->Write($output_filename) and die("ファイル $input_filename に書き込み保存できない");
+
+        # 情報の画面表示
+        print(" original=".$width."x".$height.
+            ", start:x=".$x_start.",y=".$y_start."(trim=".$width_trim."x".$height_trim."), ".$lr.
+            ", cripsize=".$width_crop."x".$height_crop."\n");
+    };
+    if($@){
+        my $str = $@;
+        chomp($str);
+        print("画像変換エラー : ".$str."\n");
     }
-    elsif($lr eq 'R') {
-        $width_crop = int(int($width/2)-$width_trim*2);
-        $height_crop = $height-$height_trim*2;
-        $x_start = int($width/2)+$width_trim;
-        $y_start = 0+$height_trim;
-    }
-    else {
-        $width_crop = int($width-$width_trim*2);
-        $height_crop = $height-$height_trim*2;
-        $x_start = 0+$width_trim*2;
-        $y_start = 0+$height_trim;
-    }
-
-    # ページ中央のオーバーラップがある場合のクリップ座標の調整
-    if($nCenterOverlapRate > 0){
-        $width_crop += int($width/2*$nCenterOverlapRate/100);
-        if($lr eq 'R'){ $x_start -= int($width/2*$nCenterOverlapRate/100); }
-    }
-
-    # 画像切り抜き（クリップ）
-    if($nTrimRate>0 || $lr ne 'N' || $nCenterOverlapRate > 0) {
-        $image->Crop('width'=>$width_crop, 'height'=>$height_crop, 'x'=>$x_start, 'y'=>$y_start);
-    }
-
-    # 黒・白しきい値
-    $image->BlackThreshold(threshold=>$nBlackThreshold);    # 設定値以下は黒になる
-    $image->WhiteThreshold(threshold=>$nWhiteThreshold);    # 設定値以上は白になる
-    # ガンマ補正
-    $image->Gamma(gamma=>$nGamma);
-
-    # 画像の保存
-    $image->Set(quality=>$nQuality);        # 保存クオリティ（%）
-    $image->Write($output_filename);
-
-    # 情報の画面表示
-    print(" original=".$width."x".$height.
-        ", start:x=".$x_start.",y=".$y_start."(trim=".$width_trim."x".$height_trim."), ".$lr.
-        ", cripsize=".$width_crop."x".$height_crop."\n");
-
-
+    return;
 }
 
 
