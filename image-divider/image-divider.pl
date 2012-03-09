@@ -12,6 +12,7 @@
 # version 0.1 (2010/December/06)
 # version 0.2 (2012/January/10)
 # version 0.3 (2012/March/08)
+# version 0.3.1 (2012/March/09)
 #
 # GNU GPL Free Software
 #
@@ -235,10 +236,10 @@ sub sub_user_input_init {
 # 戻り値 1:同一ディレクトリ, 0:別のディレクトリ
 sub sub_check_same_dir {
     # 出力側ディレクトリに、テンポラリファイルを作成する
-    my ($fh, $filename) = File::Temp::tempfile(DIR => $strOutputDir, SUFFIX => '.tmp');
+    my ($fh, $filename) = File::Temp::tempfile(DIR => sub_conv_to_local_charset($strOutputDir), SUFFIX => '.tmp');
     print($fh "test\n");
     close($fh);
-    if(-f $strInputDir . basename($filename)){
+    if(-f sub_conv_to_local_charset($strInputDir) . basename($filename)){
         # 入力側ディレクトリに、テンポラリファイルが見つかったら、同一ディレクトリと判定
         unlink($filename);
         return 1;
@@ -276,16 +277,16 @@ sub sub_split_image {
     my $output_filename = sprintf("%s%04d.jpg", $strOutputDir, $seq_no);
     
     print($input_filename." -> ".$output_filename."\n");
-    if(!(-f $input_filename)){ die("ファイル $input_filename が存在しない\n"); }
+    if(!(-f sub_conv_to_local_charset($input_filename))){ die("ファイル $input_filename が存在しない\n"); }
     eval{
-        if(!(-r $input_filename)){ die("ファイル $input_filename に読み込み属性がない"); }
+        if(!(-r sub_conv_to_local_charset($input_filename))){ die("ファイル $input_filename に読み込み属性がない"); }
         my $image = Image::Magick->new();
 
         # 画像読み込み
         $image->Read($input_filename) and die('ファイル '.$input_filename.' の読み込みに失敗');
 
         # 元画像サイズ
-        my ($width, $height) = Image::Size::imgsize($input_filename);
+        my ($width, $height) = Image::Size::imgsize(sub_conv_to_local_charset($input_filename));
         # 画像サイズ読み込み
         if(!defined($width) || !defined($height) || $width <= 0 || $height <= 0){
             die("ファイル $input_filename の縦横ピクセル数が読み取れない");
@@ -340,7 +341,7 @@ sub sub_split_image {
 
         # 画像の保存
         $image->Set(quality=>$nQuality);        # 保存クオリティ（%）
-        $image->Write($output_filename) and die("ファイル $input_filename に書き込み保存できない");
+        $image->Write(sub_conv_to_local_charset($output_filename)) and die("ファイル $input_filename に書き込み保存できない");
 
         # 情報の画面表示
         print(" original=".$width."x".$height.
