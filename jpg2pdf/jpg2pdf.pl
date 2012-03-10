@@ -4,6 +4,7 @@
 # Software name :convert jpeg to pdf (複数のjpeg ファイルをpdfに変換)
 # jpg2pdf.pl
 # version 0.1 (2010/December/07)
+# version 0.2 (2012/March/10)
 #
 # Copyright (C) INOUE Hirokazu, All Rights Reserved
 #     http://oasis.halfmoon.jp/
@@ -32,16 +33,14 @@ use strict;
 use warnings;
 use utf8;
 
-my $flag_os = 'linux';  # linux/windows
-my $flag_charcode = 'utf8';     # utf8/shiftjis
-
 use File::Basename;
 use PDF::Create;
-# use PDF::API2;
 use Image::Size;
 use Encode::Guess qw/euc-jp shiftjis iso-2022-jp/;
-# use Encode::Guess;
-#use Data::Dumper;
+use File::Glob;
+
+my $flag_os = 'linux';  # linux/windows
+my $flag_charcode = 'utf8';     # utf8/shiftjis
 
 # IOの文字コードを規定
 if($flag_charcode eq 'utf8'){
@@ -55,9 +54,9 @@ if($flag_charcode eq 'shiftjis'){
     binmode(STDERR, "encoding(sjis)");
 }
 
-my $strBaseDir = '';        # （入力jpegファイル）基準ディレクトリ
+my $strBaseDir = './';        # （入力jpegファイル）基準ディレクトリ
 my $strInputScanPath = './*.jpg';   # 入力ファイルの検索パス
-my $strOutputFilename = ''; # 出力 PDF
+my $strOutputFilename = './output.pdf'; # 出力 PDF
 my $strAuthor = '';
 my $strTitle='';
 my $strPaperSize = 'A4';
@@ -90,41 +89,37 @@ sub sub_user_input_init {
     }
 
     # 対象ディレクトリの入力
-    print("入力jpgファイルの格納ディレクトリを、絶対または相対ディレクトリで入力。\n（例：/home/user/, ./）");
-    if(length($strBaseDir)>0){ print("[$strBaseDir] :"); }
-    else{ print(":"); }
+    if($#ARGV >= 0 && length($ARGV[0])>1)
+    {
+        $strBaseDir = sub_conv_to_flagged_utf8($ARGV[0]);
+    }
+    print("入力jpgファイルの格納ディレクトリを、絶対または相対ディレクトリで入力。\n".
+        "（例：/home/user/, ./）[$strBaseDir] :");
     $_ = <STDIN>;
     chomp();
-    $_ = sub_conv_to_flagged_utf8($_);
-    if(length($_)<=0){
-        if(length($strBaseDir)>0){ $_ = $strBaseDir; }  # スクリプトの引数のデフォルトを使う場合
-        else{ die("終了（理由：ディレクトリが入力されませんでした）\n"); }
-    }
-    if(substr($_,-1) ne '/'){ $_ .= '/'; }  # ディレクトリは / で終わるように修正
-    unless(-d sub_conv_to_local_charset($_)){ die("終了（理由：ディレクトリ ".$_." が存在しません）\n"); }
-    unless($_ =~ m/^\// || $_ =~ m/^.\//){ $strBaseDir = "./".$_; }
-    else{ $strBaseDir = $_; }
-    print("対象ディレクトリ : " . $strBaseDir . "\n\n");
+    unless(length($_)<=0){ $strBaseDir= $_; }
+    if(substr($strBaseDir,-1) ne '/'){ $strBaseDir .= '/'; }  # ディレクトリは / で終わるように修正
+    unless(-d sub_conv_to_local_charset($strBaseDir)){ die("終了（理由：ディレクトリ ".$strBaseDir." が存在しません）\n"); }
+    print("入力ディレクトリ : " . $strBaseDir . "\n");
 
     $strInputScanPath = $strBaseDir . '*.jpg';
     print("対象jpeg検索パス : " . $strInputScanPath . "\n\n");
 
     # 出力pdfファイル名の入力
-    print("出力PDFファイルのフルパスを入力。\n（例：/home/user/012.pdf, ./012.pdf）");
-    if(length($strOutputFilename)>0){ print("[$strOutputFilename] :"); }
-    else{ print(":"); }
+    if($#ARGV >= 1 && length($ARGV[1])>1)
+    {
+        $strOutputFilename = sub_conv_to_flagged_utf8($ARGV[1]);
+    }
+    print("出力PDFファイルのフルパスを入力。\n".
+        "（例：/home/user/012.pdf, ./012.pdf）[$strOutputFilename] :");
     $_ = <STDIN>;
     chomp();
-    $_ = sub_conv_to_flagged_utf8($_);
-    if(length($_)<=0){
-        if(length($strOutputFilename)>0){ $_ = $strOutputFilename; }    # スクリプトの引数のデフォルトを使う場合
-        else{ die("終了（理由：ファイル名が入力されませんでした）\n"); }
-    }
-    if(-d sub_conv_to_local_charset($_)){ die("終了（理由：".$_." はディレクトリです）\n"); }
-    unless($_ =~ m/^\// || $_ =~ m/^.\//){ $strOutputFilename = "./".$_; }
-    else{ $strOutputFilename = $_; }
-    print("出力ファイル : " . $strOutputFilename . "\n\n");
+    unless(length($_)<=0){ $strOutputFilename= $_; }
+    if(-d sub_conv_to_local_charset($strOutputFilename)){ die("終了（理由：$strOutputFilename はディレクトリです）\n"); }
+    unless($strOutputFilename =~ m/(^\/|^.\/)/){ $strOutputFilename = "./".$strOutputFilename; }
+    print("出力ファイル : $strOutputFilename\n\n");
 
+    if($flag_charcode ne 'utf8'){ print("***PDF属性の日本語はうまく処理されない場合があります***\n"); }
 
     print("PDF属性の著作者名を入力（無い場合は改行のみ）：");
     $_ = <STDIN>;
@@ -132,17 +127,11 @@ sub sub_user_input_init {
     $strAuthor = sub_conv_to_flagged_utf8($_);
     print("Author : " . $strAuthor . "\n\n");
     
-    # PDF属性はutf16のため変換
-#   if(length($strAuthor)>0){ $strAuthor = Encode::encode('utf16', $strAuthor); }
-
     print("PDF属性のタイトルを入力（無い場合は改行のみ）：");
     $_ = <STDIN>;
     chomp;
     $strTitle = sub_conv_to_flagged_utf8($_);
     print("Title : " . $strTitle . "\n\n");
-
-    # PDF属性はutf16のため変換
-#   if(length($strTitle)>0){ $strTitle = Encode::encode('utf16', $strTitle); }
 
     # 用紙サイズの入力
     print("用紙サイズ\n 1. A3\n 2. A4\n 3. A5\n 4. A6\n 5. Legal\n 6. Letter\n用紙サイズを選択 (1-6) [2]:");
@@ -166,7 +155,7 @@ sub sub_user_input_init {
 sub sub_make_pdf{
 
     # 入力ファイルを検索して、配列に格納する。
-    @arrFiles = glob(sub_conv_to_local_charset($strInputScanPath));
+    @arrFiles = File::Glob::glob(sub_conv_to_local_charset($strInputScanPath));
     @arrFiles = sort(@arrFiles);
     if($#arrFiles < 0){ die("対象ファイルが見つからない\n"); }
     printf("対象ファイル数：%d個\n", $#arrFiles+1);
@@ -174,8 +163,8 @@ sub sub_make_pdf{
     print("PDF作成を開始します。リターンキーを押してください : ");
     <STDIN>;
 
-    # initialize PDF  （日本語のメタデータは、この状態ではエラーとなる）
-    my $pdf = new PDF::Create('filename'     => $strOutputFilename,
+    # initialize PDF  （AuthorとTitleの日本語処理は不完全。windowsの場合文字化け有り）
+    my $pdf = new PDF::Create('filename'     => sub_conv_to_local_charset($strOutputFilename),
                 'Author'       => ($strAuthor ne '' ? Encode::encode('utf16', $strAuthor) : ''),
                 'Title'        => ($strTitle ne '' ? Encode::encode('utf16', $strTitle) : ''),
                 'CreationDate' => [ localtime ], );
@@ -188,7 +177,9 @@ sub sub_make_pdf{
 
         my $strImageFile = sub_conv_to_flagged_utf8($_);
         my ($width, $height) = imgsize(sub_conv_to_local_charset($strImageFile));
-        if($width<=0 || $height<=0){print("$strImageFile error\n"); next; }
+        if(!defined($width) || !defined($height) || $width <= 0 || $height <= 0){
+            die("ファイル $strImageFile の縦横ピクセル数が読み取れない");
+        }
         print($strImageFile."\n");
 
         # ページ幅を用紙サイズに合わせるための比率
@@ -242,8 +233,6 @@ sub sub_make_pdf{
 #       'Title'       => ($strTitle ne '' ? Encode::encode('utf16', $strTitle) : '')
 #       );
 #   $pdf2->update;
-    
-
 
 }
 
