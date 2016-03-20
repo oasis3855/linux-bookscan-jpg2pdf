@@ -13,6 +13,7 @@
 # version 0.2 (2012/January/10)
 # version 0.3 (2012/March/08)
 # version 0.3.1 (2012/March/09)
+# version 0.4  (2015/March/20)
 #
 # GNU GPL Free Software
 #
@@ -71,6 +72,8 @@ my $nCenterOverlapRate = 0;     # LR/RL切り分け時、ページ中央を重�
 my $flag_LR = 'LR';             # ページ順 LR または RL、左右に2分割しない場合は N
 
 my $nGamma = 0.4;               # 画像補正値：ガンマ
+my $nUnsharpMaskAmount = 0;     # アンシャープマスクの強さ指定（0はOFF）
+my $nSharpenAmount = 0.0;         # シャープネスの強さ指定（0はOFF）
 my $nBlackThreshold = 20;       # 画像補正値：黒レベル強制（％）
 my $nWhiteThreshold = 80;       # 画像補正値：白レベル強制（％）
 my $nQuality = 85;              # jpeg保存クオリティ
@@ -192,7 +195,7 @@ sub sub_user_input_init {
     }
 
     # ガンマ値
-    print("画像補正のガンマ値入力。Kindleの場合は0.4程度 (0.0 〜 1.0) [1.0] ： ");
+    print("画像補正のガンマ値入力。1.0の場合は処理OFF (0.0 〜 1.0) [1.0] ： ");
     $_ = <STDIN>;
     chomp();
     if(length($_)<=0){ $nGamma = 1.0; }
@@ -201,24 +204,42 @@ sub sub_user_input_init {
     print("Gamma=".$nGamma."\n");
 
     # 黒レベル
-    print("強制的に黒とみなすレベル（%） (0 〜 50) [20] ： ");
+    print("強制的に黒とみなすレベル（%） (0 〜 50) [0] ： ");
     $_ = <STDIN>;
     chomp();
-    if(length($_)<=0){ $nBlackThreshold = 20; }
+    if(length($_)<=0){ $nBlackThreshold = 0; }
     elsif(int($_)<0 || int($_)>50){ die("終了（理由：0〜50を入力してください）\n"); }
     else{ $nBlackThreshold = int($_); }
     $nBlackThreshold .= '%';
     print("BlackThreshold=".$nBlackThreshold."\n");
 
     # 白レベル
-    print("強制的に白とみなすレベル（%） (50 〜 100) [80] ： ");
+    print("強制的に白とみなすレベル（%） (50 〜 100) [100] ： ");
     $_ = <STDIN>;
     chomp();
-    if(length($_)<=0){ $nWhiteThreshold = 80; }
+    if(length($_)<=0){ $nWhiteThreshold = 100; }
     elsif(int($_)<50 || int($_)>100){ die("終了（理由：50〜100を入力してください）\n"); }
     else{ $nWhiteThreshold = int($_); }
     $nWhiteThreshold .= '%';
     print("WhiteThreshold=".$nWhiteThreshold."\n");
+
+    # アンシャープマスク
+    print("アンシャープマスク強さ入力。0はOFF (0, 1〜10) [0] ： ");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $nUnsharpMaskAmount = 0; }
+    elsif(int($_)<0 || int($_)>10){ die("終了（理由：0〜10を入力してください）\n"); }
+    else{ $nUnsharpMaskAmount = int($_); }
+    print("UnsharpMaskAmount=".$nUnsharpMaskAmount."\n");
+
+    # シャープネス
+    print("シャープネス強さ入力。0はOFF (0〜2.0) [0] ： ");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $nSharpenAmount = 0.0; }
+    elsif($_<0 || $_>2.0){ die("終了（理由：0.0〜2.0を入力してください）\n"); }
+    else{ $nSharpenAmount = $_ + 0.0; }
+    print("SharpenAmount=".$nSharpenAmount."\n");
 
     # jpegクオリティ
     print("jpeg保存クオリティ（%） (50 〜 100) [85] ： ");
@@ -227,7 +248,7 @@ sub sub_user_input_init {
     if(length($_)<=0){ $nQuality = 85; }
     elsif(int($_)<50 || int($_)>100){ die("終了（理由：50〜100を入力してください）\n"); }
     else{ $nQuality = int($_); }
-    print("JpegQuality=".$nQuality."\n");
+    print("JpegQuality=".$nQuality."%\n");
 
 
 }
@@ -334,10 +355,29 @@ sub sub_split_image {
         }
 
         # 黒・白しきい値
-        $image->BlackThreshold(threshold=>$nBlackThreshold) and die("(imagemagick:black threshold) $input_filename");    # 設定値以下は黒になる
-        $image->WhiteThreshold(threshold=>$nWhiteThreshold) and die("(imagemagick:white threshold) $input_filename");    # 設定値以上は白になる
+        if($nBlackThreshold ne '0%') {
+            $image->BlackThreshold(threshold=>$nBlackThreshold) and die("(imagemagick:black threshold) $input_filename");    # 設定値以下は黒になる
+        }
+        if($nWhiteThreshold ne '100%') {
+            $image->WhiteThreshold(threshold=>$nWhiteThreshold) and die("(imagemagick:white threshold) $input_filename");    # 設定値以上は白になる
+        }
+
         # ガンマ補正
-        $image->Gamma(gamma=>$nGamma) and die("(imagemagick:gamma) $input_filename");
+        if($nGamma < 1.0) {
+            $image->Gamma(gamma=>$nGamma) and die("(imagemagick:gamma) $input_filename");
+        }
+        
+        # アンシャープマスク
+        if($nUnsharpMaskAmount != 0){
+            # geometry=>'SIGMAxAMOUNTxTHRESHOLD'  例 '0.0x3.0'
+            $image->UnsharpMask('0.0x'.int($nUnsharpMaskAmount).'.0') and die("(imagemagick:unsharpmask) $input_filename");
+        }
+
+        # シャープネス
+        if($nSharpenAmount != 0.0){
+            # geometry=>'SIGMAxAMOUNT'  例 '0.0x1.0'
+            $image->Sharpen('0.0x'.$nSharpenAmount.'') and die("(imagemagick:sharpen) $input_filename");
+        }
 
         # 画像の保存
         $image->Set(quality=>$nQuality);        # 保存クオリティ（%）
