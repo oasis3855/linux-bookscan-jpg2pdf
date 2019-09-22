@@ -155,7 +155,9 @@ sub sub_user_input_init {
 sub sub_make_pdf{
 
     # 入力ファイルを検索して、配列に格納する。
-    @arrFiles = File::Glob::glob(sub_conv_to_local_charset($strInputScanPath));
+#    @arrFiles = File::Glob::glob(sub_conv_to_local_charset($strInputScanPath));
+    # File::Glob::glob() will disappear in perl 5.30. Use File::Glob::bsd_glob() instead.
+    @arrFiles = File::Glob::bsd_glob(sub_conv_to_local_charset($strInputScanPath));
     @arrFiles = sort(@arrFiles);
     if($#arrFiles < 0){ die("対象ファイルが見つからない\n"); }
     printf("対象ファイル数：%d個\n", $#arrFiles+1);
