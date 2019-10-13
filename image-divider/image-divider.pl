@@ -14,6 +14,7 @@
 # version 0.3 (2012/March/08)
 # version 0.3.1 (2012/March/09)
 # version 0.4  (2015/March/20)
+# version 0.5  (2019/October/13)
 #
 # GNU GPL Free Software
 #
@@ -68,6 +69,7 @@ my $strInputDir = './';         # 入力ファイルのあるディレクトリ
 my $strOutputDir = './';        # 出力ディレクトリ
 my $strSearchPattern = '*.jpg'; # 対象ファイル（検索文字列）
 my $nTrimRate = 0;              # 周囲を切り取る率（0〜50）％
+my $nTrimRL = 0;                # 左右を切り取るピクセル数
 my $nCenterOverlapRate = 0;     # LR/RL切り分け時、ページ中央を重複させる
 my $flag_LR = 'LR';             # ページ順 LR または RL、左右に2分割しない場合は N
 
@@ -174,7 +176,7 @@ sub sub_user_input_init {
     print("ページ順=".$flag_LR."\n");
 
 
-    # 画像の周囲を切り抜き（トリム）
+    # 画像の周囲を切り抜き（トリム %指定）
     print("周囲を切り取る率(%)を入力 (0 〜 50) [0]： ");
     $_ = <STDIN>;
     chomp();
@@ -182,6 +184,17 @@ sub sub_user_input_init {
     elsif(int($_)<0 || int($_)>50){ die("終了（理由：0〜50を入力してください）\n"); }
     else{ $nTrimRate = int($_); }
     print("Trim=".$nTrimRate."%\n");
+
+    if($nTrimRate == 0){
+        # 画像の左右を切り抜き（トリム）
+        print("左右を切り取るピクセル数(px)を入力 (0 〜 500) [0]： ");
+        $_ = <STDIN>;
+        chomp();
+        if(length($_)<=0){ $nTrimRL = 0; }
+        elsif(int($_)<0 || int($_)>500){ die("終了（理由：0〜500を入力してください）\n"); }
+        else{ $nTrimRL = int($_); }
+        print("TrimRL=".$nTrimRL."px\n");
+    }
 
     # ページ左右切り分け時、ページ中央をオーバーラップさせる割合
     if($flag_LR ne 'N'){
@@ -314,6 +327,9 @@ sub sub_split_image {
         }
         # トリム サイズ
         my $width_trim = int( ($lr eq 'N' ? $width:$width/2)*$nTrimRate/100 );
+        if($nTrimRL > 0) {
+            $width_trim = int(($lr eq 'N' ? ($nTrimRL*2):($nTrimRL)));
+        }
         my $height_trim = int($height*$nTrimRate/100);
 
         # インデックスカラー、グレーの場合は、フルカラーに戻す（画像調整のため）
@@ -325,21 +341,21 @@ sub sub_split_image {
         my $x_start;
         my $y_start;
         if($lr eq 'L') {
-            $width_crop = int($width/2)-$width_trim*2;
+            $width_crop = int($width/2)-$width_trim;
             $height_crop = $height-$height_trim*2;
             $x_start = 0+$width_trim;
             $y_start = 0+$height_trim;
         }
         elsif($lr eq 'R') {
-            $width_crop = int(int($width/2)-$width_trim*2);
+            $width_crop = int($width/2)-$width_trim;
             $height_crop = $height-$height_trim*2;
-            $x_start = int($width/2)+$width_trim;
+            $x_start = int($width/2);
             $y_start = 0+$height_trim;
         }
         else {
-            $width_crop = int($width-$width_trim*2);
+            $width_crop = $width-$width_trim*2;
             $height_crop = $height-$height_trim*2;
-            $x_start = 0+$width_trim*2;
+            $x_start = 0+$width_trim;
             $y_start = 0+$height_trim;
         }
 
