@@ -5,6 +5,7 @@
 # jpg2pdf.pl
 # version 0.1 (2010/December/07)
 # version 0.2 (2012/March/10)
+# version 0.3 (2019/October/13)
 #
 # Copyright (C) INOUE Hirokazu, All Rights Reserved
 #     http://oasis.halfmoon.jp/
@@ -60,6 +61,7 @@ my $strOutputFilename = './output.pdf'; # 出力 PDF
 my $strAuthor = '';
 my $strTitle='';
 my $strPaperSize = 'A4';
+my $numPdfVersion = 1.2;
 
 my @arrFiles = ();  # 画像ファイルの配列
 
@@ -148,6 +150,20 @@ sub sub_user_input_init {
     elsif($_ == 6){ $strPaperSize = 'letter'; }
     print("用紙サイズ : " . $strPaperSize . "\n\n");
 
+    # PDF Version
+    print("PDF Version\n 0=ver1.0, 1=ver1.1, 2=ver1.2, 3=ver1.3\nPDF Versionを選択 (0-3) [2]:");
+    $_ = <STDIN>;
+    chomp();
+    if(length($_)<=0){ $_ = 2; }
+    if(int($_)<0 || int($_)>3){ die("終了（入力範囲は 0 〜 3 です）\n"); }
+    $_ = int($_);
+    if($_ == 0){ $numPdfVersion = 1.0; }
+    elsif($_ == 1){ $numPdfVersion = 1.1; }
+    elsif($_ == 2){ $numPdfVersion = 1.2; }
+    elsif($_ == 3){ $numPdfVersion = 1.3; }
+    print("PDF Version : " . $numPdfVersion . "\n\n");
+
+
 }
 
 
@@ -169,7 +185,9 @@ sub sub_make_pdf{
     my $pdf = new PDF::Create('filename'     => sub_conv_to_local_charset($strOutputFilename),
                 'Author'       => ($strAuthor ne '' ? Encode::encode('utf16', $strAuthor) : ''),
                 'Title'        => ($strTitle ne '' ? Encode::encode('utf16', $strTitle) : ''),
-                'CreationDate' => [ localtime ], );
+                'CreationDate' => [ localtime ],
+                'Version'      => $numPdfVersion, 
+                );
 
     # 用紙をポートレート（縦＞横）で置いた場合のPDFサイズ
     my $width_paper = $pdf->get_page_size($strPaperSize)->[2];  # 用紙 横サイズ
