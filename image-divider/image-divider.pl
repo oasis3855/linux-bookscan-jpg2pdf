@@ -290,7 +290,8 @@ sub sub_scan_imagefiles {
     #my $escape_char = ' ';
     #$strInputDir =~ s/([$escape_char])/'\\' . $1/eg;
 
-    @$arrScan_ref = File::Glob::glob(sub_conv_to_local_charset($strInputDir . $strSearchPattern));
+#    @$arrScan_ref = File::Glob::glob(sub_conv_to_local_charset($strInputDir . $strSearchPattern));
+    @$arrScan_ref = File::Glob::bsd_glob(sub_conv_to_local_charset($strInputDir . $strSearchPattern));
     @$arrScan_ref = sort { uc($a) cmp uc($b) } @$arrScan_ref;       # ソート
 
 }
