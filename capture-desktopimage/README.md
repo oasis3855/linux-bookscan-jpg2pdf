@@ -1,5 +1,12 @@
-## デスクトップ全画面表示した書籍を,左右キーで自動ページ送りして連続キャプチャ<br/>Desktop image sequence capture with auto key push (Linux shell script) 
+<span style="font-size:1.3em;">デスクトップ全画面表示した書籍を  左右キーで自動ページ送りして連続キャプチャ<br/>Desktop image sequence capture with auto key push (Linux shell script) </span>
 
+---
+
+- [機能の概要](#機能の概要)
+- [利用方法](#利用方法)
+- [実画面の解像度以上でキャプチャしたい場合](#実画面の解像度以上でキャプチャしたい場合)
+- [バージョン履歴](#バージョン履歴)
+- [ライセンス](#ライセンス)
 
 ###  機能の概要
 Linuxデスクトップに全画面表示し、キーボードの左右矢印キーでページ送りするタイプの書籍やカタログなどの画像を連続キャプチャし、jpeg画像に保存する自動化スクリプトです。 
@@ -29,9 +36,12 @@ Linuxデスクトップに全画面表示し、キーボードの左右矢印キ
 
     xrandr --output HDMI --panning 3840x2860
 
-処理が完了した後は、もとに戻しておく
+処理が完了した後は、階層度をもとに戻しておく
 
     xrandr --output HDMI --panning 0x0
+
+### バージョン履歴
+- Version 1.0 (2019/Oct/13)
 
 ### ライセンス
 

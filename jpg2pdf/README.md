@@ -1,4 +1,14 @@
-## 複数のjpegファイルを結合しpdfファイルを作成する for 書籍スキャン<br />Make pdf from multiple jpeg files   for Windows, Linux and BSD 
+<span style="font-size:1.3em;">複数のjpegファイルを結合しpdfファイルを作成する for 書籍スキャン<br />Make pdf from multiple jpeg files   for Windows, Linux and BSD</span>
+
+---
+
+- [機能の概要](#機能の概要)
+  - [類似ソフトウエアの紹介](#類似ソフトウエアの紹介)
+  - [制限](#制限)
+- [インストール、実行方法](#インストール実行方法)
+  - [OSによる文字コード扱い差異の切り替え](#osによる文字コード扱い差異の切り替え)
+- [バージョン履歴](#バージョン履歴)
+- [ライセンス](#ライセンス)
 
 ###  機能の概要
 指定されたフォルダに格納されているjpegファイル（検索条件 *.jpg）をファイル名順に並べ替え、1つのpdfファイルに変換保存するコマンドライン ツールです。

@@ -1,6 +1,18 @@
-## 複数のjpegファイルを結合しKindle用mobiファイルを作成する for 書籍スキャン<br />Make Amazon Kindle mobi file from multiple jpeg
+<span style="font-size:1.3em;">複数のjpegファイルを結合しKindle用mobiファイルを作成する for 書籍スキャン<br />Make Amazon Kindle mobi file from multiple jpeg</span>
 
+---
 このページは拙作ソフトウエアの配布ではなく、Amazon公式ソフトウエアや第三者の作成したソフトウエアの利用法、変換結果を考察するページです。
+
+
+- [概要](#概要)
+- [jpegをmobiに変換するソフトウエアと使い方](#jpegをmobiに変換するソフトウエアと使い方)
+  - [Kindle Comic Creator (Amazon純正ソフト)](#kindle-comic-creator-amazon純正ソフト)
+  - [Kindle Comic Converter（フリーソフト） と Kindlegen (Amazon純正ソフト)](#kindle-comic-converterフリーソフト-と-kindlegen-amazon純正ソフト)
+- [ファイルの圧縮率](#ファイルの圧縮率)
+- [画面表示の比較](#画面表示の比較)
+  - [PDFの場合](#pdfの場合)
+  - [mobiの場合](#mobiの場合)
+
 
 ### 概要
 Amazon Kindleで自炊した電子書籍を読む場合、PDFではシステム制限で余白が表示されてしまい結果としてページが小さく縮小表示されてしまう。
