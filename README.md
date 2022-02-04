@@ -1,5 +1,10 @@
 ![電子書籍：自炊で行こう](readme_pics/title-img2pdf-at-cdg.png)
 
+[Home](https://oasis3855.github.io/webpage/) > [Software](https://oasis3855.github.io/webpage/software/index.html) > [Software Download](https://oasis3855.github.io/webpage/software/software-download.html) > ***linux-bookscan-jpg2pdf*** (this page)
+
+<br />
+<br />
+
 書籍を何冊も抱えて出張や旅行に行く時代は、電子書籍端末が現れて過去のものになったと思います。たとえ 見栄えのクオリティ が悪くなっても情報が取り出せればよいガイドブックやマニュアル類といった本は、電子書籍端末に全部放り込んで身軽になるという選択肢も悪くないですよ。
 
 - [1) 書籍をスキャンする](#1-書籍をスキャンする)
@@ -7,6 +12,9 @@
 - [2)  スキャンした画像の画質調整と左右二分割](#2--スキャンした画像の画質調整と左右二分割)
 - [3)  複数のjpegファイルを結合してPDFファイルに変換](#3--複数のjpegファイルを結合してpdfファイルに変換)
 - [番外編) 複数のjpegファイルを結合してAmazon Kindle専用のmobiファイルに変換](#番外編-複数のjpegファイルを結合してamazon-kindle専用のmobiファイルに変換)
+
+<br />
+<br />
 
 ### このページの概要
 

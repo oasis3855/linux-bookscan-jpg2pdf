@@ -1,6 +1,12 @@
-<span style="font-size:1.3em;">jpeg画像ファイル二分割・コントラスト調整 for 書籍スキャン<br/>Split and Contrast Adjust for jpeg Image   for Windows, Linux and BSD</span>
+jpeg画像ファイル二分割・コントラスト調整 for 書籍スキャン<br/>
+Split and Contrast Adjust for jpeg Image , Linux/Windows Perl Script
 
 ---
+[Home](https://oasis3855.github.io/webpage/) > [Software](https://oasis3855.github.io/webpage/software/index.html) > [Software Download](https://oasis3855.github.io/webpage/software/software-download.html) > ***image-divider*** (this page)
+
+<br />
+<br />
+
 - [機能の概要](#機能の概要)
   - [このソフトウエアの特徴](#このソフトウエアの特徴)
   - [類似ソフトウエアの紹介](#類似ソフトウエアの紹介)
@@ -9,6 +15,10 @@
   - [OSによる文字コード扱い差異の切り替え](#osによる文字コード扱い差異の切り替え)
 - [バージョン履歴](#バージョン履歴)
 - [ライセンス](#ライセンス)
+
+<br />
+<br />
+
 ###  機能の概要
 jpegファイルを左右二分割・ガンマ調整・強制白レベル/黒レベル調整して、連番をつけて新規画像保存するコマンドライン ツールです。主に、書籍を見開きでスキャンした画像を、左右分割して保存する目的で利用するスクリプトです。
 

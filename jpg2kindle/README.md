@@ -1,6 +1,11 @@
 <span style="font-size:1.3em;">複数のjpegファイルを結合しKindle用mobiファイルを作成する for 書籍スキャン<br />Make Amazon Kindle mobi file from multiple jpeg</span>
 
 ---
+[Home](https://oasis3855.github.io/webpage/) > [Software](https://oasis3855.github.io/webpage/software/index.html) > [Software Download](https://oasis3855.github.io/webpage/software/software-download.html) > ***jpg2kindle*** (this page)
+
+<br />
+<br />
+
 このページは拙作ソフトウエアの配布ではなく、Amazon公式ソフトウエアや第三者の作成したソフトウエアの利用法、変換結果を考察するページです。
 
 
@@ -13,6 +18,8 @@
   - [PDFの場合](#pdfの場合)
   - [mobiの場合](#mobiの場合)
 
+<br />
+<br />
 
 ### 概要
 Amazon Kindleで自炊した電子書籍を読む場合、PDFではシステム制限で余白が表示されてしまい結果としてページが小さく縮小表示されてしまう。
