@@ -32,7 +32,8 @@
 
 ## 1) 書籍をスキャンする
 
-  ![イメージスキャナで書籍をスキャンしjpgファイル化する](readme_pics/img2pdf-step1.png)
+  ![イメージスキャナで書籍をスキャンしjpgファイル化する](readme_pics/img2pdf-step1.png#gh-light-mode-only)
+  ![イメージスキャナで書籍をスキャンしjpgファイル化する](readme_pics/img2pdf-step1-darkmode.png#gh-dark-mode-only)
 
 取り込んだjpeg画像の画質調整は、この後の「スキャンした画像の画質調整と左右二分割」で行いますので、標準的な画質で取り込めば良いと思います。ファイルは 001.jpg, 002.jpg, 003.jpg ..... と連番で保存しておくと、あとの処理が楽です。
 
@@ -44,13 +45,15 @@ Linuxで連続スキャンする場合は [xsane](http://www.sane-project.org/) 
 
 ## 2)  スキャンした画像の画質調整と左右二分割 
 
-  ![jpeg画像ファイル二分割・コントラスト調整 for 書籍スキャン](image-divider/readme_pics/img2pdf-step2.png)
+  ![jpeg画像ファイル二分割・コントラスト調整 for 書籍スキャン](image-divider/readme_pics/img2pdf-step2.png#gh-light-mode-only)
+  ![jpeg画像ファイル二分割・コントラスト調整 for 書籍スキャン](image-divider/readme_pics/img2pdf-step2-darkmode.png#gh-dark-mode-only)
 
 左右見開きページを1枚のjpg画像として取り込んだ場合は、『[jpeg画像ファイル二分割・コントラスト調整](image-divider/)』を用いて左右ニ分割して保存します。
 
 ## 3)  複数のjpegファイルを結合してPDFファイルに変換 
 
-  ![複数のjpegファイルを結合しpdfファイルを作成する](jpg2pdf/readme_pics/img2pdf-step3.png)
+  ![複数のjpegファイルを結合しpdfファイルを作成する](jpg2pdf/readme_pics/img2pdf-step3.png#gh-light-mode-only)
+  ![複数のjpegファイルを結合しpdfファイルを作成する](jpg2pdf/readme_pics/img2pdf-step3-darkmode.png#gh-dark-mode-only)
 
 『[複数のjpegファイルを結合しpdfファイルを作成する](jpg2pdf/)』のPerlスクリプトを用います。取り込んだ画像を劣化させずにPDFファイルに結合することができます。
 

@@ -1,7 +1,7 @@
-<span style="font-size:1.3em;">複数のjpegファイルを結合しKindle用mobiファイルを作成する for 書籍スキャン<br />Make Amazon Kindle mobi file from multiple jpeg</span>
+## 複数のjpegファイルを結合しKindle用mobiファイルを作成する for 書籍スキャン<br />Make Amazon Kindle mobi file from multiple jpeg<!-- omit in toc -->
 
 ---
-[Home](https://oasis3855.github.io/webpage/) > [Software](https://oasis3855.github.io/webpage/software/index.html) > [Software Download](https://oasis3855.github.io/webpage/software/software-download.html) > ***jpg2kindle*** (this page)
+[Home](https://oasis3855.github.io/webpage/) > [Software](https://oasis3855.github.io/webpage/software/index.html) > [Software Download](https://oasis3855.github.io/webpage/software/software-download.html) > [linux-bookscan-jpg2pdf](../README.md)  > ***jpg2kindle*** (this page)
 
 <br />
 <br />
@@ -21,13 +21,13 @@
 <br />
 <br />
 
-### 概要
+## 概要
 Amazon Kindleで自炊した電子書籍を読む場合、PDFではシステム制限で余白が表示されてしまい結果としてページが小さく縮小表示されてしまう。
 
 Amazon Kindle専用のファイル（mobiファイル）を作成すれば、画面いっぱいにページ表示が可能だ。 
 
-### jpegをmobiに変換するソフトウエアと使い方
-#### Kindle Comic Creator (Amazon純正ソフト) 
+## jpegをmobiに変換するソフトウエアと使い方
+### Kindle Comic Creator (Amazon純正ソフト) 
 Amazonの電子出版技術サイト『[Kindle Comic Creator](https://www.amazon.co.jp/gp/feature.html?ie=UTF8&docId=3077699036)』からWindows版（Windows XP以降）とMac版がダウンロード可能。
 
 インストール時に『Kindle Previewer』を同時にインストールするか表示されるが、mobiファイルの作成だけならKindle Previewerは不要。
@@ -50,7 +50,7 @@ Kindle Comic Creatorを起動し、画面中央の「新しい本を作成」ボ
 
 ファイルの選択が終われば、画面のプレビューが表示される。Kindle Comic Creatorのメニューより「ビルド」を実行すると、mobiファイルが指定したディレクトリ内に作成される。 
 
-####  Kindle Comic Converter（フリーソフト） と Kindlegen (Amazon純正ソフト) 
+###  Kindle Comic Converter（フリーソフト） と Kindlegen (Amazon純正ソフト) 
 
 [Kindle Comic Converter](https://kcc.iosphe.re/)より『Kindle Comic Converter』（Windows x86-64版と、Mac版）のインストーラを、[KindleGen](https://www.amazon.com/gp/feature.html?ie=UTF8&docId=1000765211)より『Amazon KindleGen コマンドツール』をそれぞれダウンロードする。
 
@@ -78,21 +78,21 @@ Strech/Upscaleのチェックをグレー状態（半チェック）にすると
 
 「Convert」ボタンを押すと、mobiファイルが作成される。 
 
-### ファイルの圧縮率 
+## ファイルの圧縮率 
 
 元データとなるjpegファイルを高圧縮にすれば、PDFファイルのサイズは小さく出来る。
 
 しかし、mobiファイルの作成はターゲットデバイスの解像度設定を変更する以外、圧縮率を設定できない。 また、変換中に自動的に画像が再圧縮されるため、元データのjpegサイズはほぼ反映されないと考えて良いと思う。 
 
-###  画面表示の比較
+##  画面表示の比較
 
-#### PDFの場合
+### PDFの場合
 
   ![PDFファイルの表示](readme_pics/kindle-screen-pdf.jpg)
 
 PDF表示の場合は、画面の周囲に無駄な余白が表示される 
 
-#### mobiの場合
+### mobiの場合
 
   ![Kindle Comic Creator (Amazon純正ソフト) で作成したmobiファイルの表示](readme_pics/kindle-screen-strech.jpg)<br />
   Kindle Comic Creator (Amazon純正ソフト) で作成したmobiファイルの表示
