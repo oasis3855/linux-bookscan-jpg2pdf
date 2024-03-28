@@ -12,6 +12,7 @@
 - [2)  スキャンした画像の画質調整と左右二分割](#2--スキャンした画像の画質調整と左右二分割)
 - [3)  複数のjpegファイルを結合してPDFファイルに変換](#3--複数のjpegファイルを結合してpdfファイルに変換)
 - [番外編) 複数のjpegファイルを結合してAmazon Kindle専用のmobiファイルに変換](#番外編-複数のjpegファイルを結合してamazon-kindle専用のmobiファイルに変換)
+- [番外編) PDFファイルを扱う単機能ツール類 (PDF misc tools)](#番外編-pdfファイルを扱う単機能ツール類-pdf-misc-tools)
 
 <br />
 <br />
@@ -57,8 +58,18 @@ Linuxで連続スキャンする場合は [xsane](http://www.sane-project.org/) 
 
 『[複数のjpegファイルを結合しpdfファイルを作成する](jpg2pdf/)』のPerlスクリプトを用います。取り込んだ画像を劣化させずにPDFファイルに結合することができます。
 
+<br />
+<br />
+
 ## 番外編) 複数のjpegファイルを結合してAmazon Kindle専用のmobiファイルに変換
 
 Amazon Kindleでしか読まないのであれば、余白表示が最適化されるmobiファイルに変換するほうがよい。『[複数のjpegファイルを結合しKindle用mobiファイルを作成する](jpg2kindle/)』で概要説明しています。
 
+<br />
+<br />
 
+## 番外編) PDFファイルを扱う単機能ツール類 (PDF misc tools)
+
+[PDFファイルを扱う単機能ツール類 (PDF misc tools)](./pdf-misc-tools/) を参照
+
+- pdf-resize-a4 : PDFファイルの用紙サイズをA4に合わせるスクリプト
