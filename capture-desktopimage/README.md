@@ -54,6 +54,19 @@ Linuxデスクトップに全画面表示し、キーボードの左右矢印キ
 
     xrandr --output HDMI --panning 0x0
 
+あるいは、**画面上の文字が細かくなりコマンド入力が非常に行いにくいが** 次の方法でも仮想的な解像度を増加できる
+
+    xrandr --output HDMI --scale-from 3840x2860
+
+または
+
+    xrandr --output HDMI --scale 2.0x2.0
+
+処理が完了した後は、次のコマンドで解像度を戻しておく
+
+    xrandr --output HDMI --scale-from 1920x1080
+    xrandr --output HDMI --scale 1x1
+
 ### バージョン履歴
 - Version 1.0 (2019/10/13)
 
